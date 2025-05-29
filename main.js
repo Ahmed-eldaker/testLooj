@@ -5,60 +5,51 @@ const emailInput = document.getElementById("email");
 const showUserData = document.getElementById("showUserData");
 
 const lastNameParts = [
+  // English/Western
   "el", "al", "ibn", "ebn", "bin", "abu", "abo", "ben", "bint",
-  "mac", "mc", "von", "van", "de", "da", "di", "del"
+  "mac", "mc", "von", "van", "de", "da", "di", "del",
+
+  // Arabic (Arabic script)
+  "ال", "بن", "ابن", "أبو", "أبن", "بنّت", "بنت","بني",
+  "آل", "عبد", "عبدال", "ذو", "ذي"
 ];
 
-// Capitalize each word smartly
-const capitalize = (str) =>
+
+// Arabic-aware trimming and cleaning
+const cleanName = (str) =>
   str
-    .split(" ")
-    .map((word) =>
-      word.length <= 2 ? word.toLowerCase() : word[0].toUpperCase() + word.slice(1).toLowerCase()
-    )
-    .join(" ");
+    .replace(/[-<>();]/g, " ") // remove unwanted symbols
+    .replace(/\s+/g, " ")      // normalize spaces
+    .trim();
 
 addBtn.addEventListener("click", () => {
-  let first = firstInput.value.trim();
-  let last = lastInput.value.trim();
-  let email = emailInput.value.trim();
+  const fullText = firstInput.value.trim();
+  const emailPattern = /[\w.-]+@[\w.-]+\.\w+/g;
 
-  // Extract email from first input if embedded
-  const emailMatch = first.match(/<*([\w.-]+@[\w.-]+\.\w+)>*/);
-  if (emailMatch) {
-    email = emailMatch[1];
-    first = first.replace(emailMatch[0], "").replace(/[<>]/g, "").trim();
-  }
+  // Match all emails
+  const emails = [...fullText.matchAll(emailPattern)];
 
-  // Clean extra symbols from first
-  first = first.replace(/[-<>();]/g, " ").replace(/\s+/g, " ").trim();
+  if (!emails.length) return;
 
-  // If last input is filled, trust it
-  if (last) {
-    // Do nothing
-  }
+  for (let i = 0; i < emails.length; i++) {
+    const email = emails[i][0];
+    const emailIndex = emails[i].index;
 
-  // Handle "Last, First" format
-  else if (first.includes(",")) {
-    const parts = first
-      .split(",")
-      .map((part) => part.trim())
-      .filter(Boolean);
-    if (parts.length >= 2) {
-      last = parts[0];
-      first = parts.slice(1).join(" ");
-    }
-  }
+    const startOfName = i === 0 ? 0 : emails[i - 1].index + emails[i - 1][0].length;
+    const rawName = fullText.substring(startOfName, emailIndex).trim();
 
-  // Try to auto-split full name if last is empty
-  else if (!last && first) {
-    const words = first.split(" ").filter(Boolean);
+    // Clean and split the name
+    let name = rawName.replace(/[-<>();]/g, " ").replace(/\s+/g, " ").trim();
+    let first = "", last = "";
 
+    const words = name.split(" ").filter(Boolean);
+
+    // Detect last name part
     let lastIndex = -1;
-    for (let i = 0; i < words.length; i++) {
-      const wordLower = words[i].toLowerCase();
-      if (lastNameParts.includes(wordLower)) {
-        lastIndex = i;
+    for (let j = 0; j < words.length; j++) {
+      const wordLower = words[j].toLowerCase();
+      if (lastNameParts.includes(wordLower) || lastNameParts.includes(words[j])) {
+        lastIndex = j;
         break;
       }
     }
@@ -69,21 +60,24 @@ addBtn.addEventListener("click", () => {
     } else if (words.length > 1) {
       last = words.pop();
       first = words.join(" ");
+    } else {
+      first = words.join(" ");
     }
-  }
 
-  // Final cleanup and formatting
-  first = capitalize(first.replace(/\s+/g, " "));
-  last = capitalize(last.replace(/\s+/g, " "));
-  email = email.trim();
+    // Preserve original casing, just trim
+    first = first.trim();
+    last = last.trim();
 
-  if (first || last || email) {
-    const userDiv = document.createElement("div");
-    userDiv.textContent = `👤 ${first} ${last} | ${first} | ${last} | ✉️ ${email}`;
-    showUserData.appendChild(userDiv);
+    // Show result
+    if (first || last || email) {
+      const userDiv = document.createElement("div");
+      userDiv.textContent = `👤 ${first} ${last} | ${first} | ${last} | ✉️ ${email}`;
+      showUserData.appendChild(userDiv);
+    }
   }
 
   firstInput.value = "";
   lastInput.value = "";
   emailInput.value = "";
 });
+
